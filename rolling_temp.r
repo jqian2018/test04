@@ -13,7 +13,8 @@ rollingGA = function(df, rollWin=21, ...) {
   RollGAResults = list()
   
   for (i in rollWin:length(dates)) {
-    # you may need to add start Date and end Date in your output of GlobalAttributionMulti
+    # you may need to add start Date and end Date in your output of GlobalAttributionMulti FUNCTION
+    # !!!! PLEASE !!!! verify that which(df$Date %in% dates[(i+1-rollWin):i]) returns the correct date range
     RollGAResults[[i+1-rollWin]] = GlobalAttributionMulti(df[which(df$Date %in% dates[(i+1-rollWin):i])], ... )
   }
   # next just use as.data.frame(data.table::rbindlist(...))
@@ -26,8 +27,8 @@ rollingGA = function(df, rollWin=21, ...) {
   dates = sort(unique(df$Date))
   
   #  take the index of your subsetted data, 
-    # if you have one row for each day, then subSet_idx = 1,2,3,..,21
-    # if you have one 2 row for each day, then subSet_idx = 1,2,3,..,42
+    # if you have one row for each day, then subSet_idx[[1]] = 1,2,3,..,21
+    # if you have one 2 row for each day, then subSet_idx[[1]] = 1,2,3,..,42
   subSet_idx = lapply(rollWin:length(dates),
                       function(x){ return(which(df$Date %in% dates[(x+1-rollWin):x]))})
   
