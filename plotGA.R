@@ -2,6 +2,8 @@ rm(list=ls());
 library(ggplot2); library(dplyr)
 library(scales); library(reshape2)
 
+# ----------- fake data ----------
+
 MGA = data.frame(DATE=sort(rep(as.Date(42001:42200, origin="1899-12-30"),1,200*4)),
                  COUNTRY=rep(c("ABC","DEF","GHI","JKL"),1,200*4))
 
@@ -31,7 +33,16 @@ MGAL = melt(MGA, id.vars=c("DATE","COUNTRY"))
 
 sglDf = MGAL %>% filter(DATE==DATE[1])
 
-MGA_total = MGAL %>% filter(COUNTRY=="TOTAL")
+# ---- fake data 2 
+
+MGA_total = data.frame(Eff=c("CTRY_EFF","LOC_PORT_EFF","HEDG_CUR_EFF","LOC_CUR_EFF"),
+                       ARCntr=runif(4),TEContr=runif(4),
+                       IRCntr=runif(4))
+MGA_total = melt(MGA_total, id.vars="Eff")
+MGA_total$variable = factor(MGA_total$variable, levels=c("ARCntr","TEContr","IRCntr"))
+
+start.Date = "2018-01-01"
+end.Date= "2018-06-30"
 
 
 # ------- Single period attribution -------
@@ -56,19 +67,37 @@ defineTags = function(setTag) {
   }
 }
 
-sglBarGen = function(dfx, fillvar="variable",textSize=3, xVar="COUNTRY") {
-  
-  dfx$fillvar = dfx[,fillvar];
-  dfx$xVar = dfx[,xVar]
-  ggplot(dfx, aes(x=xVar, y=value, fill=fillvar)) +
+sglBarGen = function(dfx, fillvar="variable",textSize=3, 
+                     xVar="COUNTRY", prct=T, suppLegend=F) {
+  dfx = data.frame(dfx)
+  if (fillvar != xVar) {
+    dfx$fillvar = dfx[,fillvar];
+    dfx$xVar = dfx[,xVar]
+    p = ggplot(dfx, aes(x=xVar, y=value, fill=fillvar)) 
+  } else {
+    dfx$xVar = dfx[,xVar]
+    p = ggplot(dfx, aes(x=xVar, y=value, fill=xVar)) 
+  }
+
+  p = p +
     geom_bar(stat="identity", position=position_dodge()) +
-    scale_y_continuous(labels=scales::percent) +
     xlab(xVar)+
     guides(fill=guide_legend(title="")) +
-    geom_text(size=textSize, position = position_dodge(width = 1),
-              aes(x=xVar, y=value, label=sprintf("%1.2f%%", 100*value))) +
     geom_hline(aes(yintercept=0))
-    
+  
+  if (prct) { p = p + scale_y_continuous(labels=scales::percent) +
+    geom_text(size=textSize, position = position_dodge(width = 1),
+              aes(x=xVar, y=value, label=sprintf("%1.2f%%", 100*value))) 
+  } else {
+    p = p + geom_text(size=textSize, position = position_dodge(width = 1),
+                      aes(x=xVar, y=value, label=sprintf("%#.2f", value)))
+  }
+  
+  if (suppLegend) {
+    p = p + theme(legend.position="none")
+  }
+  
+  return(p)
 }
 
 plotGA_byCountry = function(sglDf, sets, textSize=3) {
@@ -128,16 +157,17 @@ plotGA_Total = function(sglDf, textSize=3) {
   dfx$cat = factor(dfx$cat, levels=c("Weights","Local Return","USD Return"))
   
   return(list(
-    sglBarGen(dfx, fillvar="port", textSize=textSize, xVar="port") +
+    sglBarGen(dfx, fillvar="port", textSize=textSize, xVar="port",suppLegend=T) +
       facet_wrap(~cat, scale="free_y") + xlab("") +
       ylab("Weights / Returns in %") + 
-      ggtitle(paste0("Portfolio, Benchmark and Active Weights and Returns on ",dfx$DATE[1])) +
-      theme(legend.position="none"),
+      ggtitle(paste0("Portfolio, Benchmark and Active Weights and Returns on ",dfx$DATE[1])),
     
-    sglBarGen(dfxb, fillvar="variable", textSize=textSize, xVar="variable") +
+    sglBarGen(dfxb, fillvar="variable", textSize=textSize, xVar="variable",suppLegend=T) +
       ylab("Attributed Effects in %") + 
-      ggtitle(paste0("Decompose Active Return on ",dfx$DATE[1])) +
-      theme(legend.position="none")))
+      ggtitle(paste0("Decompose Active Return on ",dfx$DATE[1]))
+    
+    )
+  )
   
   
   
@@ -153,21 +183,49 @@ plotGA_Wrap = function(sglDf, sets, textSize=3) {
 # usage
 plots_ga = plotGA_Wrap(sglDf, sets, textSize)
 
+
 # ------- Plot overall -------
+
+plots_mga = list()
 
 # COUNTRY = TOTAL
 # barchart AR TE IR Contribution
-# barchart IR Risk weights, Component IR, IR Contribution
+
+plots_mga[[1]] = sglBarGen(MGA_total, xVar="Eff", 
+                           fillvar="Eff", textSize=textSize, prct=F) +
+              facet_wrap(~variable, scales="free_y") +
+              ylab("Active Ret / Trk Err / Info Ratio") +
+              ggtitle(paste0("Active Return, Tracking Error and Info Ratio Attribution ",
+                             start.Date," to ", end.Date)) 
+
+plots_mga[[2]] = sglBarGen(MGA_total %>% group_by(variable) %>% mutate(value=value/sum(value)) , 
+                            xVar="Eff", fillvar="Eff", textSize=textSize, prct=T) +
+              facet_wrap(~variable) +
+              ylab("% Contribution to Active Ret / Trk Err / Info Ratio") +
+              ggtitle(paste0("Active Return, Tracking Error and Info Ratio Attribution (%) ",
+                             start.Date," to ", end.Date)) 
 
 # COUNTRY = ...........
 # barchart AR TE IR Contribution
-# barchart IR Risk weights, Component IR, IR Contribution
-
+# ...... in the future
 
 # ------- Plot time-series -------
-
-# COUNTRY = TOTAL
-# plot time-series active weigths and returns
-# plot time-series % Effs
+# 
+# # COUNTRY = TOTAL
+# # plot time-series active weigths and returns
+# # plot time-series % Effs
+# 
+# MGA_ts1 = MGAL %>% filter(variable %in% c("PORT_WT","BENCH_WT"))
+# 
+# MGA_ts1b = MGAL %>% filter(variable %in% c("PORT_RET_USD","BENCH_RET_USD")) %>% 
+# 
+# MGA_ts2 = MGAL %>% filter(variable %in% sets[[3]], COUNTRY!="TOTAL") %>% 
+#   group_by(DATE) %>% mutate(value=value/sum(value))
+# 
+# ggplot(data=MGA_ts2, aes(x=DATE, y=value, color=COUNTRY)) +
+#   geom_line() + 
+#   facet_wrap(~variable)
+# 
+# 
 
 
