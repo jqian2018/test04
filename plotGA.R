@@ -96,7 +96,8 @@ plotGA = function(sglDf, sets, textSize=3) {
                       list(sglBarGen(dfx,textSize=textSize,fillvar="port") +
                                     facet_wrap(~CURCY) +
                                     ylab(texts$ylabs) +
-                                    ggtitle(paste0(texts$titles,dfx$DATE[1]))),
+                                    ggtitle(paste0(texts$titles,dfx$DATE[1]))))
+      ggList = append(ggList,
                       list(sglBarGen(dfx,textSize=textSize,fillvar="CURCY") +
                              facet_wrap(~port) +
                              ylab(texts$ylabs) +
@@ -112,7 +113,7 @@ plotGA = function(sglDf, sets, textSize=3) {
   return(ggList)
 }
 
-
+a = plotGA(sglDf, sets, textSize=3) 
 
 
 # 
