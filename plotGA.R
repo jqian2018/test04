@@ -31,14 +31,10 @@ MGAL = melt(MGA, id.vars=c("DATE","COUNTRY"))
 
 sglDf = MGAL %>% filter(DATE==DATE[1])
 
+MGA_total = MGAL %>% filter(COUNTRY=="TOTAL")
 
-# plot GA
 
-#  single day
-  # 1 - bar chart weights
-  # 2 - bar chart ret_loc & ret_USD
-  # 3 - Effs
-  # 4 - Effs in %
+# ------- Single period attribution -------
 
 textSize = 3
 
@@ -46,18 +42,6 @@ sets = list(set1 = c("PORT_WT","BENCH_WT","ACT_BET"),
             set2 = c("PORT_RET_LOC","BENCH_RET_LOC","ACT_RET_LOC",
                      "PORT_RET_USD","BENCH_RET_USD","ACT_RET_USD"),
             set3 = c("CTRY_EFF","LOC_PORT_EFF","HEDG_CUR_EFF","LOC_CUR_EFF"))
-
-sglBarGen = function(dfx, fillvar="variable",textSize=3) {
-  dfx$fillvar = dfx[,fillvar]
-  ggplot(dfx, aes(x=COUNTRY, y=value, fill=fillvar)) +
-    geom_bar(stat="identity", position=position_dodge()) +
-    scale_y_continuous(labels=scales::percent) +
-    guides(fill=guide_legend(title="")) +
-    geom_text(size=textSize, position = position_dodge(width = 1),
-              aes(x=COUNTRY, y=value, label=sprintf("%1.2f%%", 100*value))) +
-    geom_hline(aes(yintercept=0))
-    
-}
 
 defineTags = function(setTag) {
   if (setTag=="set1") {
@@ -67,12 +51,27 @@ defineTags = function(setTag) {
     return(list(ylabs="Returns in %",
                 titles="Portfolio, Benchmark and Active Returns by Country on "))
   } else if (setTag=="set3") {
-    return(list(ylabs="Effects in %",
+    return(list(ylabs="Attributed Effects in %",
                 titles="Decompose Active Return on "))
   }
 }
 
-plotGA = function(sglDf, sets, textSize=3) {
+sglBarGen = function(dfx, fillvar="variable",textSize=3, xVar="COUNTRY") {
+  
+  dfx$fillvar = dfx[,fillvar];
+  dfx$xVar = dfx[,xVar]
+  ggplot(dfx, aes(x=xVar, y=value, fill=fillvar)) +
+    geom_bar(stat="identity", position=position_dodge()) +
+    scale_y_continuous(labels=scales::percent) +
+    xlab(xVar)+
+    guides(fill=guide_legend(title="")) +
+    geom_text(size=textSize, position = position_dodge(width = 1),
+              aes(x=xVar, y=value, label=sprintf("%1.2f%%", 100*value))) +
+    geom_hline(aes(yintercept=0))
+    
+}
+
+plotGA_byCountry = function(sglDf, sets, textSize=3) {
   
   ggList = list()
   
@@ -113,82 +112,62 @@ plotGA = function(sglDf, sets, textSize=3) {
   return(ggList)
 }
 
-a = plotGA(sglDf, sets, textSize=3) 
+plotGA_Total = function(sglDf, textSize=3) {
+  
+  dfx = sglDf %>% filter(COUNTRY=="TOTAL", variable!="FX_RET")
+  dfxb = dfx[grep("EFF",dfx$variable),] %>% filter(variable!="TOTAL_EFF") %>% 
+    mutate(value=value/sum(value))
+  dfx = dfx[-grep("EFF",dfx$variable),]
+  dfx$port = "Portfolio"
+  dfx$port[grep("BENCH",dfx$variable)] = "Benchmark"
+  dfx$port[grep("ACT",dfx$variable)] = "Active"
+  dfx$port = factor(dfx$port, levels=c("Portfolio","Benchmark","Active"))
+  dfx$cat = "Weights"
+  dfx$cat[grep("LOC",dfx$variable)] = "Local Return"
+  dfx$cat[grep("USD",dfx$variable)] = "USD Return"
+  dfx$cat = factor(dfx$cat, levels=c("Weights","Local Return","USD Return"))
+  
+  return(list(
+    sglBarGen(dfx, fillvar="port", textSize=textSize, xVar="port") +
+      facet_wrap(~cat, scale="free_y") + xlab("") +
+      ylab("Weights / Returns in %") + 
+      ggtitle(paste0("Portfolio, Benchmark and Active Weights and Returns on ",dfx$DATE[1])) +
+      theme(legend.position="none"),
+    
+    sglBarGen(dfxb, fillvar="variable", textSize=textSize, xVar="variable") +
+      ylab("Attributed Effects in %") + 
+      ggtitle(paste0("Decompose Active Return on ",dfx$DATE[1])) +
+      theme(legend.position="none")))
+  
+  
+  
+}
+
+plotGA_Wrap = function(sglDf, sets, textSize=3) {
+  
+  return(c(plotGA_byCountry(sglDf, sets, textSize),
+           plotGA_Total(sglDf, textSize)))
+  
+}
+
+# usage
+plots_ga = plotGA_Wrap(sglDf, sets, textSize)
+
+# ------- Plot overall -------
+
+# COUNTRY = TOTAL
+# barchart AR TE IR Contribution
+# barchart IR Risk weights, Component IR, IR Contribution
+
+# COUNTRY = ...........
+# barchart AR TE IR Contribution
+# barchart IR Risk weights, Component IR, IR Contribution
 
 
-# 
-# 
-# # savePng=T, pngName=NULL, width=NULL, height=NULL
-# 
-# 
-# 
-# defaultDIM = function(width=NULL, height=NULL) {
-#   if (is.null(width) & is.null(height)) {
-#     width = 10; height = 5
-#   } else if (is.null(width) & !is.null(height)) {
-#     width = 2*height
-#   } else if (!is.null(width) & is.null(height)) {
-#     height = .5*width
-#   }
-#   return(list(width=width, height=height))
-# }
-# 
-# savePngF = function(p, pngName=NULL, width=NULL, height=NULL) {
-#   DIM = defaultDIM(width, height)
-#   if (is.null(pngName)) {
-#     pngName = paste0(getwd(),"/plot_",format(Sys.Date(), "%Y%m%d"),
-#                      "_", round(runif(1),2),".png")
-#   }
-#   ggsave(plot=p, filename=pngName, width=width, height=height)
-#   shell.exec(pngName)
-# }
-# 
-# plotGen = function(df, xvar, yvar, grpvar=NULL, 
-#                    Type = "bar",
-#                     titleName=NULL, xlabs=NULL, ylabs=NULL,
-#                    ) {
-#   
-#   if (!(Type %in% c("bar","line"))) {
-#     warning("only support bar / line"); stop()
-#   }
-#   
-#   df$xvar = df[,xvar]; df$yvar = df[,yvar]
-# 
-#   if (is.null(xlabs)) { xlabs=xvar }
-#   if (is.null(ylabs)) { ylabs=yvar }
-#   
-#   if (!is.null(grpvar)) {
-#     df$grpvar = df[,grpvar]
-#     p = ggplot(df, aes(x=xvar, y=yvar, group=grpvar, fill=grpvar, color=grpvar))  
-#   } else {
-#     p = ggplot(df, aes(x=xvar, y=yvar)) 
-#   }
-#   
-#   if (!is.null(facetVar)) {
-#     df$facetVar = df[, facetVar]
-#     p = p + facet_wrap(~facetVar, ncol=facetCol)
-#   }
-#   
-#   if (Type=="line") {
-#     p = p + geom_line()
-#   } else if (Type=="bar") {
-#     p = p + geom_bar(stat="identity")
-#   }
-#   
-#   p = p + xlab(xlabs) + ylab(ylabs)
-#   
-#   if (!is.null(titleName)) {
-#     p = p + ggtitle(titleName)
-#   }
-#   
-#   if (savePng) {
-#     savePngF(p, pngName, width, height)
-#   } else {
-#     return(p)
-#   }
-# }
-# 
-# # plot MGA
-#   
-# 
-# 
+# ------- Plot time-series -------
+
+# COUNTRY = TOTAL
+# plot time-series active weigths and returns
+# plot time-series % Effs
+
+
