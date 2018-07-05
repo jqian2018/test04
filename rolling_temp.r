@@ -45,4 +45,26 @@ rollingGA = function(df, rollWin=21, ...) {
   return(RollGAResults)
 }
 
+# ----- for each month, subset data, then call GlobalAttributionMulti
 
+library(lubridate)
+
+dates = as.Date(40000:40600, origin="1899-12-30")
+df = data.frame(Date=sort(rep(dates,1,2000)), val=runif(2000))
+
+wmonGA = function(df,  ...) {
+  
+  mon_num = year(df$Date)*100 + month(df$Date)
+  
+  #  take the index of your subsetted data, 
+  subSet_idx = lapply(sort(unique(mon_num)),
+                      function(x){ return(which(mon_num==x))})
+  # for example
+  # df$Date[subSet_idx[[1]]]
+  
+  RollGAResults = lapply(subSet_idx, function(x) GlobalAttributionMulti(df[x,], ... ))
+  
+  # next just use as.data.frame(data.table::rbindlist(...))
+  
+  return(RollGAResults)
+}

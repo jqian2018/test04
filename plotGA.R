@@ -192,14 +192,14 @@ plots_mga = list()
 # barchart AR TE IR Contribution
 
 plots_mga[[1]] = sglBarGen(MGA_total, xVar="Eff", 
-                           fillvar="Eff", textSize=textSize, prct=F) +
+                           fillvar="Eff", textSize=textSize, prct=F, suppLegend=T) +
               facet_wrap(~variable, scales="free_y") +
               ylab("Active Ret / Trk Err / Info Ratio") +
               ggtitle(paste0("Active Return, Tracking Error and Info Ratio Attribution ",
                              start.Date," to ", end.Date)) 
 
 plots_mga[[2]] = sglBarGen(MGA_total %>% group_by(variable) %>% mutate(value=value/sum(value)) , 
-                            xVar="Eff", fillvar="Eff", textSize=textSize, prct=T) +
+                            xVar="Eff", fillvar="Eff", textSize=textSize, prct=T, suppLegend=T) +
               facet_wrap(~variable) +
               ylab("% Contribution to Active Ret / Trk Err / Info Ratio") +
               ggtitle(paste0("Active Return, Tracking Error and Info Ratio Attribution (%) ",
